@@ -322,26 +322,80 @@ private extension Zephyr {
 
      Synchronizes specific keys to/from NSUbiquitousKeyValueStore and NSUserDefaults.
 
-     - parameter keys: Array of leys to synchronize.
+     - parameter keys: Array of keys to synchronize.
      - parameter dataStore: Signifies if keys should be synchronized to/from iCloud.
 
      */
     func syncSpecificKeys(keys: [String], dataStore: ZephyrDataStore) {
 
         for key in keys {
-
-            switch dataStore {
-            case .Local:
-                let value = zephyrLocalStoreDictionary[key]
-                syncToCloud(key: key, value: value)
-            case .Remote:
-                let value = zephyrRemoteStoreDictionary[key]
-                syncFromCloud(key: key, value: value)
-            }
+            let localValue = zephyrLocalStoreDictionary[key]
+            let remoteValue = zephyrRemoteStoreDictionary[key]
+            syncSpecificKey(key, localValue: localValue, remoteValue: remoteValue,
+                            preferDataStore: dataStore)
 
         }
 
     }
+
+    /**
+
+     Synchronizes a specific key to/from NSUbiquitousKeyValueStore and NSUserDefaults.
+     If value for key is a dict, a smart merge will be made and synced to & from iCloud.
+
+     - parameter key: The key to synchronize
+     - parameter localValue: The local value to synchronize
+     - parameter remoteValue: The remote value to synchronize
+     - parameter preferDataStore: Signifies if keys should prefer the local or remote version
+
+     */
+    func syncSpecificKey(key: String, localValue: AnyObject?, remoteValue: AnyObject?,
+                         preferDataStore: ZephyrDataStore) {
+        if let localDict = localValue as? Dictionary<String, AnyObject>,
+               remoteDict = remoteValue as? Dictionary<String, AnyObject> {
+            syncDictionariesForKey(key, localDict: localDict, remoteDict: remoteDict,
+                                   preferDataStore: preferDataStore)
+        } else {
+            switch preferDataStore {
+            case .Local:
+                syncToCloud(key: key, value: localValue)
+            case .Remote:
+                syncFromCloud(key: key, value: remoteValue)
+            }
+        }
+    }
+
+    /**
+
+     Synchronizes a specific Dictionary key to NSUbiquitousKeyValueStore and NSUserDefaults.
+     Performs a merge of the the differente sub-keys and sub-values and syncs them to & from iCloud.
+
+     - parameter key: The dictionary key to synchronize
+     - parameter localDict: The local version of the dictionary
+     - parameter remoteValue: The remote version of the dictionary
+     - parameter preferDataStore: In case of conflict in sub-values, which value is preferred
+
+     */
+    func syncDictionariesForKey(key: String, localDict: Dictionary<String, AnyObject>,
+                                remoteDict: Dictionary<String, AnyObject>, preferDataStore: ZephyrDataStore) {
+        var mergedDict: Dictionary<String, AnyObject>
+        switch preferDataStore {
+        case .Local:
+            mergedDict = remoteDict
+            for (subKey, subValue) in localDict {
+                mergedDict[subKey] = subValue
+            }
+        case .Remote:
+            mergedDict = localDict
+            for (subKey, subValue) in remoteDict {
+                mergedDict[subKey] = subValue
+            }
+        }
+
+        syncToCloud(key: key, value: mergedDict)
+        syncFromCloud(key: key, value: mergedDict)
+    }
+
 
     /**
 
