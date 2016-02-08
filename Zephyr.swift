@@ -271,7 +271,7 @@ public class Zephyr: NSObject {
         removeKeysFromBeingMonitored(keys)
 
     }
-
+    
 }
 
 // MARK: Helpers
@@ -351,8 +351,12 @@ private extension Zephyr {
      */
     func syncSpecificKey(key: String, localValue: AnyObject?, remoteValue: AnyObject?,
                          preferDataStore: ZephyrDataStore) {
-        if let localDict = localValue as? Dictionary<String, AnyObject>,
-               remoteDict = remoteValue as? Dictionary<String, AnyObject> {
+        let localDict = localValue as? Dictionary<String, AnyObject>
+        let remoteDict = remoteValue as? Dictionary<String, AnyObject>
+                            
+        if (localDict != nil || remoteDict != nil) {
+            let localDict:[String:AnyObject]! = (localDict != nil ? localDict : [:])
+            let remoteDict:[String:AnyObject]! = (remoteDict != nil ? remoteDict : [:])
             syncDictionariesForKey(key, localDict: localDict, remoteDict: remoteDict,
                                    preferDataStore: preferDataStore)
         } else {
@@ -443,7 +447,8 @@ private extension Zephyr {
 
         registerObserver(key)
     }
-
+    
+    
     /**
 
      Synchronizes all NSUbiquitousKeyValueStore to NSUserDefaults.
