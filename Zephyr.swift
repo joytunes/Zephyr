@@ -351,22 +351,34 @@ private extension Zephyr {
      */
     func syncSpecificKey(key: String, localValue: AnyObject?, remoteValue: AnyObject?,
                          preferDataStore: ZephyrDataStore) {
+        
+        // Smart merge dictinaries
         let localDict = localValue as? Dictionary<String, AnyObject>
         let remoteDict = remoteValue as? Dictionary<String, AnyObject>
                             
         if (localDict != nil || remoteDict != nil) {
-            let localDict:[String:AnyObject]! = (localDict != nil ? localDict : [:])
-            let remoteDict:[String:AnyObject]! = (remoteDict != nil ? remoteDict : [:])
-            syncDictionariesForKey(key, localDict: localDict, remoteDict: remoteDict,
+            syncDictionariesForKey(key, localDict: (localDict ?? [:]), remoteDict: (remoteDict ?? [:]),
                                    preferDataStore: preferDataStore)
-        } else {
-            switch preferDataStore {
-            case .Local:
-                syncToCloud(key: key, value: localValue)
-            case .Remote:
-                syncFromCloud(key: key, value: remoteValue)
-            }
+            return
         }
+        
+        // Smart merge arrays
+        let localArray = localValue as? Array<String>
+        let remoteArray = remoteValue as? Array<String>
+
+        if (localArray != nil || remoteArray != nil) {
+            syncArraysForKey(key, localArray: (localArray ?? []), remoteArray: (remoteArray ?? []),
+                             preferDataStore: preferDataStore)
+            return
+        }
+
+        // Default merge
+        if (localValue == nil || (preferDataStore == .Remote && remoteValue != nil)) {
+            syncFromCloud(key: key, value: remoteValue)
+        } else if (remoteValue == nil || (preferDataStore == .Local && localValue != nil)) {
+            syncToCloud(key: key, value: localValue)
+        }
+                            
     }
 
     /**
@@ -400,6 +412,17 @@ private extension Zephyr {
         syncFromCloud(key: key, value: mergedDict)
     }
 
+    func syncArraysForKey(key: String, localArray: Array<String>,
+                          remoteArray: Array<String>, preferDataStore: ZephyrDataStore) {
+                            
+        let localSet = Set(localArray)
+        let remoteSet = Set(remoteArray)
+                            
+        let mergedArray:Array<String> = Array(localSet.union(remoteSet))
+        
+        syncToCloud(key: key, value: mergedArray)
+        syncFromCloud(key: key, value: mergedArray)
+    }
 
     /**
 
